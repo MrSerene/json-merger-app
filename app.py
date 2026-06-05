@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import zipfile
 import time
-import pandas as pd
 
 # =========================
 # PAGE CONFIG
@@ -90,7 +89,10 @@ if uploaded_files:
 
         try:
 
+            # =====================
             # JSON FILE
+            # =====================
+
             if uploaded_file.name.lower().endswith(".json"):
 
                 data = json.load(uploaded_file)
@@ -100,7 +102,10 @@ if uploaded_files:
                 else:
                     merged_data.append(data)
 
+            # =====================
             # ZIP FILE
+            # =====================
+
             elif uploaded_file.name.lower().endswith(".zip"):
 
                 with zipfile.ZipFile(uploaded_file, "r") as zip_ref:
@@ -169,26 +174,17 @@ if uploaded_files:
     st.caption(f"Processed in {elapsed} seconds")
 
     # =========================
-    # PREVIEW
+    # JSON PREVIEW
     # =========================
 
-    with st.expander("Preview First 10 Records"):
+    with st.expander(
+        f"Merged JSON Preview ({min(len(merged_data),10)} of {len(merged_data)} records)"
+    ):
 
-        preview_rows = []
-
-        for item in merged_data[:10]:
-
-            preview_rows.append({
-                "Manufacturer": item.get("manufacturer", ""),
-                "Model": item.get("model", ""),
-                "Year": item.get("year", "")
-            })
-
-        if preview_rows:
-            st.dataframe(
-                pd.DataFrame(preview_rows),
-                use_container_width=True
-            )
+        st.json(
+            merged_data[:10],
+            expanded=False
+        )
 
     # =========================
     # DOWNLOAD
