@@ -1,16 +1,15 @@
 import streamlit as st
 import json
 import zipfile
-from io import BytesIO
 
 # =========================
-# CONFIG
+# LOGIN CONFIG
 # =========================
 USERNAME = "yash"
 PASSWORD = "merger2026"
 
 st.set_page_config(
-    page_title="JSON Merger",
+    page_title="JSON Merger Pro",
     page_icon="📦",
     layout="wide"
 )
@@ -29,7 +28,6 @@ if not st.session_state.logged_in:
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-
         if username == USERNAME and password == PASSWORD:
             st.session_state.logged_in = True
             st.rerun()
@@ -39,15 +37,15 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =========================
-# APP HEADER
+# HEADER
 # =========================
 st.title("📦 JSON Merger Pro")
-st.markdown(
+st.write(
     "Upload multiple JSON files or ZIP files and download a merged JSON."
 )
 
 # =========================
-# FILE UPLOAD
+# FILE UPLOADER
 # =========================
 uploaded_files = st.file_uploader(
     "Drag & Drop JSON or ZIP Files",
@@ -58,11 +56,9 @@ uploaded_files = st.file_uploader(
 if uploaded_files:
 
     merged_data = []
-    seen = set()
 
     total_files = len(uploaded_files)
     invalid_files = 0
-    duplicates_removed = 0
 
     progress = st.progress(0)
 
@@ -77,23 +73,10 @@ if uploaded_files:
 
                 data = json.load(uploaded_file)
 
-                if not isinstance(data, list):
-                    data = [data]
-
-                for item in data:
-
-                    key = (
-                        str(item.get("manufacturer", "")).strip().lower(),
-                        str(item.get("model", "")).strip().lower(),
-                        str(item.get("year", "")).strip()
-                    )
-
-                    if key in seen:
-                        duplicates_removed += 1
-                        continue
-
-                    seen.add(key)
-                    merged_data.append(item)
+                if isinstance(data, list):
+                    merged_data.extend(data)
+                else:
+                    merged_data.append(data)
 
             # =====================
             # ZIP FILE
@@ -113,23 +96,10 @@ if uploaded_files:
 
                                 data = json.load(f)
 
-                                if not isinstance(data, list):
-                                    data = [data]
-
-                                for item in data:
-
-                                    key = (
-                                        str(item.get("manufacturer", "")).strip().lower(),
-                                        str(item.get("model", "")).strip().lower(),
-                                        str(item.get("year", "")).strip()
-                                    )
-
-                                    if key in seen:
-                                        duplicates_removed += 1
-                                        continue
-
-                                    seen.add(key)
-                                    merged_data.append(item)
+                                if isinstance(data, list):
+                                    merged_data.extend(data)
+                                else:
+                                    merged_data.append(data)
 
                         except Exception:
                             invalid_files += 1
@@ -156,7 +126,7 @@ if uploaded_files:
     # =========================
     st.success("Merge Completed")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.metric("Files Uploaded", total_files)
@@ -165,9 +135,6 @@ if uploaded_files:
         st.metric("Final Records", len(merged_data))
 
     with col3:
-        st.metric("Duplicates Removed", duplicates_removed)
-
-    with col4:
         st.metric("Invalid Files", invalid_files)
 
     # =========================
