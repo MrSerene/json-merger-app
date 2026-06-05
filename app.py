@@ -10,7 +10,7 @@ import pandas as pd
 
 st.set_page_config(
     page_title="OEM JSON Merger Studio",
-    page_icon="🚀",
+    page_icon="📦",
     layout="wide"
 )
 
@@ -26,15 +26,11 @@ st.markdown("""
     padding-top:2rem;
 }
 
-h1{
-    text-align:center;
-}
-
 .main-title{
     text-align:center;
     font-size:42px;
     font-weight:700;
-    margin-bottom:0;
+    margin-bottom:10px;
 }
 
 .sub-title{
@@ -42,13 +38,6 @@ h1{
     font-size:18px;
     color:#999;
     margin-bottom:30px;
-}
-
-.stMetric{
-    background:#262730;
-    padding:15px;
-    border-radius:12px;
-    border:1px solid #444;
 }
 
 div[data-testid="stMetric"]{
@@ -67,11 +56,11 @@ div[data-testid="stMetric"]{
 
 st.markdown("""
 <div class="main-title">
-🚀 OEM JSON Merger Studio
+OEM JSON Merger Studio
 </div>
 
 <div class="sub-title">
-Merge multiple JSON and ZIP files into a single JSON output
+Upload JSON or ZIP files and generate a single merged JSON file
 </div>
 """, unsafe_allow_html=True)
 
@@ -80,7 +69,7 @@ Merge multiple JSON and ZIP files into a single JSON output
 # =========================
 
 uploaded_files = st.file_uploader(
-    "📂 Drag & Drop JSON or ZIP Files",
+    "📂 Upload JSON or ZIP Files",
     type=["json", "zip"],
     accept_multiple_files=True
 )
@@ -94,7 +83,6 @@ if uploaded_files:
     start_time = time.time()
 
     merged_data = []
-
     total_files = len(uploaded_files)
     invalid_files = 0
 
@@ -109,10 +97,7 @@ if uploaded_files:
 
         try:
 
-            # =====================
             # JSON FILE
-            # =====================
-
             if uploaded_file.name.lower().endswith(".json"):
 
                 data = json.load(uploaded_file)
@@ -122,10 +107,7 @@ if uploaded_files:
                 else:
                     merged_data.append(data)
 
-            # =====================
             # ZIP FILE
-            # =====================
-
             elif uploaded_file.name.lower().endswith(".zip"):
 
                 with zipfile.ZipFile(uploaded_file, "r") as zip_ref:
@@ -167,15 +149,15 @@ if uploaded_files:
         )
     )
 
-    # =========================
-    # STATS
-    # =========================
-
     elapsed = round(time.time() - start_time, 2)
 
-    st.success("✅ Merge Completed Successfully")
+    # =========================
+    # RESULT
+    # =========================
 
-    st.balloons()
+    st.success(
+        f"Successfully merged {len(merged_data):,} records from {total_files} files."
+    )
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -197,7 +179,7 @@ if uploaded_files:
     # PREVIEW
     # =========================
 
-    with st.expander("📋 Preview First 10 Records"):
+    with st.expander("Preview First 10 Records"):
 
         preview_rows = []
 
@@ -214,8 +196,6 @@ if uploaded_files:
                 pd.DataFrame(preview_rows),
                 use_container_width=True
             )
-        else:
-            st.write("No records found")
 
     # =========================
     # DOWNLOAD
