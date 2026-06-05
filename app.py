@@ -1,64 +1,107 @@
 import streamlit as st
 import json
 import zipfile
+import time
+import pandas as pd
 
 # =========================
-# LOGIN CONFIG
+# PAGE CONFIG
 # =========================
-USERNAME = "yash"
-PASSWORD = "merger2026"
 
 st.set_page_config(
-    page_title="JSON Merger Pro",
-    page_icon="📦",
+    page_title="OEM JSON Merger Studio",
+    page_icon="🚀",
     layout="wide"
 )
 
 # =========================
-# LOGIN
+# CUSTOM CSS
 # =========================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
 
-if not st.session_state.logged_in:
+st.markdown("""
+<style>
 
-    st.title("🔐 JSON Merger Login")
+.block-container{
+    max-width:1200px;
+    padding-top:2rem;
+}
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+h1{
+    text-align:center;
+}
 
-    if st.button("Login"):
-        if username == USERNAME and password == PASSWORD:
-            st.session_state.logged_in = True
-            st.rerun()
-        else:
-            st.error("Invalid username or password")
+.main-title{
+    text-align:center;
+    font-size:42px;
+    font-weight:700;
+    margin-bottom:0;
+}
 
-    st.stop()
+.sub-title{
+    text-align:center;
+    font-size:18px;
+    color:#999;
+    margin-bottom:30px;
+}
+
+.stMetric{
+    background:#262730;
+    padding:15px;
+    border-radius:12px;
+    border:1px solid #444;
+}
+
+div[data-testid="stMetric"]{
+    background:#262730;
+    border:1px solid #444;
+    padding:15px;
+    border-radius:12px;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # =========================
 # HEADER
 # =========================
-st.title("📦 JSON Merger Pro")
-st.write(
-    "Upload multiple JSON files or ZIP files and download a merged JSON."
-)
+
+st.markdown("""
+<div class="main-title">
+🚀 OEM JSON Merger Studio
+</div>
+
+<div class="sub-title">
+Merge multiple JSON and ZIP files into a single JSON output
+</div>
+""", unsafe_allow_html=True)
 
 # =========================
 # FILE UPLOADER
 # =========================
+
 uploaded_files = st.file_uploader(
-    "Drag & Drop JSON or ZIP Files",
+    "📂 Drag & Drop JSON or ZIP Files",
     type=["json", "zip"],
     accept_multiple_files=True
 )
 
+# =========================
+# PROCESS FILES
+# =========================
+
 if uploaded_files:
+
+    start_time = time.time()
 
     merged_data = []
 
     total_files = len(uploaded_files)
     invalid_files = 0
+
+    total_size = round(
+        sum(file.size for file in uploaded_files) / (1024 * 1024),
+        2
+    )
 
     progress = st.progress(0)
 
@@ -69,6 +112,7 @@ if uploaded_files:
             # =====================
             # JSON FILE
             # =====================
+
             if uploaded_file.name.lower().endswith(".json"):
 
                 data = json.load(uploaded_file)
@@ -81,6 +125,7 @@ if uploaded_files:
             # =====================
             # ZIP FILE
             # =====================
+
             elif uploaded_file.name.lower().endswith(".zip"):
 
                 with zipfile.ZipFile(uploaded_file, "r") as zip_ref:
@@ -112,6 +157,7 @@ if uploaded_files:
     # =========================
     # SORT DATA
     # =========================
+
     merged_data = sorted(
         merged_data,
         key=lambda x: (
@@ -124,9 +170,14 @@ if uploaded_files:
     # =========================
     # STATS
     # =========================
-    st.success("Merge Completed")
 
-    col1, col2, col3 = st.columns(3)
+    elapsed = round(time.time() - start_time, 2)
+
+    st.success("✅ Merge Completed Successfully")
+
+    st.balloons()
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric("Files Uploaded", total_files)
@@ -137,15 +188,39 @@ if uploaded_files:
     with col3:
         st.metric("Invalid Files", invalid_files)
 
+    with col4:
+        st.metric("Size (MB)", total_size)
+
+    st.info(f"⏱ Processed in {elapsed} seconds")
+
     # =========================
     # PREVIEW
     # =========================
-    with st.expander("Preview First 10 Records"):
-        st.json(merged_data[:10])
+
+    with st.expander("📋 Preview First 10 Records"):
+
+        preview_rows = []
+
+        for item in merged_data[:10]:
+
+            preview_rows.append({
+                "Manufacturer": item.get("manufacturer", ""),
+                "Model": item.get("model", ""),
+                "Year": item.get("year", "")
+            })
+
+        if preview_rows:
+            st.dataframe(
+                pd.DataFrame(preview_rows),
+                use_container_width=True
+            )
+        else:
+            st.write("No records found")
 
     # =========================
     # DOWNLOAD
     # =========================
+
     json_output = json.dumps(
         merged_data,
         indent=2,
@@ -156,8 +231,12 @@ if uploaded_files:
         label="⬇ Download Merged JSON",
         data=json_output,
         file_name="merged_output.json",
-        mime="application/json"
+        mime="application/json",
+        use_container_width=True
     )
 
 else:
-    st.info("Upload one or more JSON/ZIP files to begin.")
+
+    st.info(
+        "Upload one or more JSON or ZIP files to begin merging."
+    )
