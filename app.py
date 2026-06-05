@@ -36,15 +36,8 @@ st.markdown("""
 .sub-title{
     text-align:center;
     font-size:18px;
-    color:#999;
+    color:#666;
     margin-bottom:30px;
-}
-
-div[data-testid="stMetric"]{
-    background:#262730;
-    border:1px solid #444;
-    padding:15px;
-    border-radius:12px;
 }
 
 </style>
@@ -173,7 +166,7 @@ if uploaded_files:
     with col4:
         st.metric("Size (MB)", total_size)
 
-    st.info(f"⏱ Processed in {elapsed} seconds")
+    st.caption(f"Processed in {elapsed} seconds")
 
     # =========================
     # PREVIEW
