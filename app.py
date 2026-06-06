@@ -9,20 +9,118 @@ import io
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="OEM JSON Merger & Cleaner Studio",
+    page_title="OEM JSON Studio PRO",
     page_icon="🚀",
     layout="wide"
 )
 
 # =========================
-# CLEANING ENGINE CONFIG
+# CONFIG & MAPS
 # =========================
 REMOVE_VALUES = {"no", "not applicable", "not available", "0"}
 REMOVE_EXTRA = {"available", "standard", "optional", "option", "0"}
 BLANK_HEADERS = {"features", "options", "videos", "attachments"}
 
+NUMBER_MAP = {
+    "0": "Zero", "1": "One", "2": "Two", "3": "Three",
+    "4": "Four", "5": "Five", "6": "Six", "7": "Seven",
+    "8": "Eight", "9": "Nine"
+}
+
 # =========================
-# CLEANING ENGINE FUNCTIONS
+# CAMELCASE HELPERS
+# =========================
+def number_to_word(num):
+    return ''.join(NUMBER_MAP[d] for d in num if d in NUMBER_MAP)
+
+def to_camel_case(text, keep_number=False):
+    """
+    keep_number = True  → convert to word (1→One)
+    keep_number = False → remove numbers
+    """
+    text = re.sub(r'[^a-zA-Z0-9]+', ' ', text)
+    words = re.findall(r'[A-Za-z0-9]+', text)
+    cleaned = []
+
+    for word in words:
+        if word.isdigit():
+            if keep_number:
+                cleaned.append(number_to_word(word))
+            continue
+
+        if re.search(r'[a-zA-Z]', word) and re.search(r'\d', word):
+            match = re.match(r'([a-zA-Z]+)(\d+)$', word)
+            if match:
+                letters, digits = match.groups()
+                if keep_number:
+                    word = letters + number_to_word(digits)
+                else:
+                    word = letters
+                cleaned.append(word)
+            else:
+                word = re.sub(r'\d+', '', word)
+                if word:
+                    cleaned.append(word)
+        else:
+            cleaned.append(word)
+
+    if not cleaned:
+        return ""
+
+    return cleaned[0].lower() + ''.join(w.capitalize() for w in cleaned[1:])
+
+def get_base_label(label):
+    return re.sub(r'\d+', '', label).strip().lower()
+
+# =========================
+# DYNAMIC CAMELCASE PROCESSOR
+# =========================
+def process_json_keys_to_camel(data):
+    if isinstance(data, dict):
+        # First pass: detect duplicate base labels in the current structure level
+        label_count = {}
+        for value in data.values():
+            if isinstance(value, dict) and "label" in value:
+                base = get_base_label(value["label"])
+                label_count[base] = label_count.get(base, 0) + 1
+
+        new_dict = {}
+        for key, value in data.items():
+            if isinstance(value, dict) and "label" in value and "desc" in value:
+                label = value["label"]
+                base = get_base_label(label)
+
+                # Decide rule based on count duplication
+                if label_count.get(base, 0) > 1:
+                    correct_key = to_camel_case(label, keep_number=True)
+                else:
+                    correct_key = to_camel_case(label, keep_number=False)
+            else:
+                correct_key = key
+
+            # Run recursion for deep nested nodes
+            if isinstance(value, dict):
+                value = process_json_keys_to_camel(value)
+            elif isinstance(value, list):
+                value = [process_json_keys_to_camel(i) for i in value]
+
+            # Prevent duplication overwrites inside the same dictionary block
+            final_key = correct_key
+            count = 2
+            while final_key in new_dict:
+                final_key = f"{correct_key}{count}"
+                count += 1
+
+            new_dict[final_key] = value
+        return new_dict
+
+    elif isinstance(data, list):
+        return [process_json_keys_to_camel(i) for i in data]
+        
+    return data
+
+# =========================
+# GLOBAL CLEANING ENGINES
 # =========================
 def clean_string_global(s):
     if not isinstance(s, str):
@@ -188,7 +286,7 @@ def clean_whole_json(obj):
     return obj
 
 # =========================
-# CUSTOM CSS
+# UI CUSTOM GRAPHICS CSS
 # =========================
 st.markdown("""
 <style>
@@ -199,15 +297,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# HEADER
+# HEADER CONTROL
 # =========================
 st.markdown("""
-<div class="main-title">Merge And Clean Data</div>
-<div class="sub-title">Upload multiple JSON or ZIP files to automatically merge, clean, format, and optimize your datasets</div>
+<div class="main-title">🚀 OEM JSON Studio PRO</div>
+<div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into camelCase properties</div>
 """, unsafe_allow_html=True)
 
 # =========================
-# CORE FILE PARSER
+# CORE UPLOAD & EXTRACTION PARSER
 # =========================
 def parse_uploaded_files(uploaded_files):
     raw_data = []
@@ -234,9 +332,9 @@ def parse_uploaded_files(uploaded_files):
     return raw_data, invalid_files
 
 # =========================
-# DYNAMIC PROCESSING PANEL
+# DYNAMIC PIPELINE VIEW
 # =========================
-uploaded_files = st.file_uploader("📂 Upload JSON or ZIP Files", type=["json", "zip"], accept_multiple_files=True, key="studio_uploader")
+uploaded_files = st.file_uploader("📂 Upload JSON or ZIP Files", type=["json", "zip"], accept_multiple_files=True, key="studio_pro_uploader")
 
 if uploaded_files:
     start_time = time.time()
@@ -245,11 +343,11 @@ if uploaded_files:
     
     progress = st.progress(0)
     
-    # 1. Parse and Merge Raw Data
+    # Step 1: Merge raw blocks
     raw_data, invalid_files = parse_uploaded_files(uploaded_files)
-    progress.progress(0.4)
+    progress.progress(0.3)
 
-    # 2. Execute Advanced Deep Cleaning Engine
+    # Step 2: Advanced Content Cleaning Engine
     cleaned_models = []
     for model in raw_data:
         model = clean_msrp_and_countries(model)
@@ -259,39 +357,47 @@ if uploaded_files:
         model = clean_whole_json(model)
         cleaned_models.append(model)
     
+    progress.progress(0.6)
+    
+    # Step 3: Run Dynamic camelCase Property Key Refactoring 
+    cleaned_models = process_json_keys_to_camel(cleaned_models)
     progress.progress(0.8)
     
-    # 3. Alpha-Numeric Sorting (Manufacturer -> Model -> Year)
+    # Step 4: Alpha-Numeric Sorting
     cleaned_models = sorted(
         cleaned_models,
-        key=lambda x: (str(x.get("general", {}).get("manufacturer", "")), str(x.get("general", {}).get("model", "")), str(x.get("general", {}).get("year", "")))
+        key=lambda x: (
+            str(x.get("general", {}).get("manufacturer", "")), 
+            str(x.get("general", {}).get("model", "")), 
+            str(x.get("general", {}).get("year", ""))
+        )
     )
     
     progress.progress(1.0)
     elapsed = round(time.time() - start_time, 2)
 
-    st.success(f"🔥 Optimization Complete! Successfully merged and cleaned {len(cleaned_models):,} records.")
+    st.success(f"🔥 Optimization & Refactoring Complete! Processed {len(cleaned_models):,} structured records.")
 
-    # KPI Metrics Layout
+    # KPI Layout
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Files Uploaded", total_files)
     col2.metric("Optimized Records", len(cleaned_models))
     col3.metric("Invalid Files Detected", invalid_files)
-    col4.metric("Total Input Size (MB)", total_size)
-    st.caption(f"Engine Runtime: {elapsed} seconds")
+    col4.metric("Total Size (MB)", total_size)
+    st.caption(f"Engine Process Time: {elapsed} seconds")
 
-    # Master Download Button
+    # Download Output
     json_output = json.dumps(cleaned_models, indent=2, ensure_ascii=False)
     st.download_button(
-        label="⬇ Download Merged & Cleaned JSON",
+        label="⬇ Download Merged, Cleaned & CamelCase JSON",
         data=json_output,
-        file_name="cleaned_oem_output.json",
+        file_name="cleaned_camelcase_oem_output.json",
         mime="application/json",
         use_container_width=True
     )
 
-    # JSON Interactive Preview Sheet
-    with st.expander(f"👁️ Merged JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)"):
+    # Preview Sheet
+    with st.expander(f"👁️ Refactored JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)"):
         st.json(cleaned_models[:10], expanded=False)
 else:
-    st.info("Upload one or more JSON or ZIP files to automatically trigger the parsing, merging, and global standard cleaning pipeline.")
+    st.info("Upload one or more files to start the automatic merge, deep content cleaning, and spec camelCase formatting engine.")
