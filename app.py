@@ -3,7 +3,6 @@ import json
 import zipfile
 import time
 import re
-import pandas as pd
 import io
 
 # =========================
@@ -188,34 +187,6 @@ def clean_whole_json(obj):
         return clean_string_global(obj)
     return obj
 
-def get_model_key(model):
-    general = model.get("general", {})
-    model_name = normalize_text(general.get("model", ""))
-    year = str(general.get("year", "")).strip().lower()
-    category = normalize_text(general.get("category", ""))
-    return (model_name, year, category)
-
-def remove_duplicate_models(models):
-    unique_models = []
-    seen = set()
-    removed_rows = []
-    for idx, model in enumerate(models):
-        key = get_model_key(model)
-        if key in seen:
-            general = model.get("general", {})
-            removed_rows.append({
-                "Manufacturer": general.get("manufacturer", ""),
-                "Model": general.get("model", ""),
-                "Category": general.get("category", ""),
-                "Subcategory": general.get("subcategory", ""),
-                "Year": general.get("year", ""),
-                "Removed Index": idx
-            })
-            continue
-        seen.add(key)
-        unique_models.append(model)
-    return unique_models, removed_rows
-
 # =========================
 # CUSTOM CSS
 # =========================
@@ -326,7 +297,7 @@ elif tool == "🚀 All In One":
         
         progress = st.progress(0)
         raw_data, invalid_files = parse_uploaded_files(uploaded_files)
-        progress.progress(0.4)
+        progress.progress(0.5)
 
         # 1. Run Pipeline Cleaners
         cleaned_models = []
@@ -338,80 +309,36 @@ elif tool == "🚀 All In One":
             model = clean_whole_json(model)
             cleaned_models.append(model)
         
-        progress.progress(0.7)
-
-        # 2. Remove Duplicate Models
-        final_cleaned_models, removed_rows = remove_duplicate_models(cleaned_models)
+        progress.progress(0.8)
         
-        # 3. Sort Data
-        final_cleaned_models = sorted(
-            final_cleaned_models,
+        # 2. Sort Data
+        cleaned_models = sorted(
+            cleaned_models,
             key=lambda x: (str(x.get("general", {}).get("manufacturer", "")), str(x.get("general", {}).get("model", "")), str(x.get("general", {}).get("year", "")))
         )
         
         progress.progress(1.0)
         elapsed = round(time.time() - start_time, 2)
 
-        st.success(f"🔥 Optimization Complete! Processed {len(final_cleaned_models):,} clean records.")
+        st.success(f"🔥 Optimization Complete! Processed {len(cleaned_models):,} clean records.")
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Input Records", len(raw_data))
-        col2.metric("Cleaned Records", len(final_cleaned_models))
-        col3.metric("Duplicates Removed", len(removed_rows))
-        col4.metric("Total Size (MB)", total_size)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Files Uploaded", total_files)
+        col2.metric("Cleaned Records", len(cleaned_models))
+        col3.metric("Total Size (MB)", total_size)
         st.caption(f"Engine Runtime: {elapsed} seconds")
 
-        # Safe Excel Report Generation Wrapper (Prevents ModuleNotFoundError crashes)
-        excel_data = None
-        excel_error = False
-        if removed_rows:
-            try:
-                excel_buffer = io.BytesIO()
-                df_report = pd.DataFrame(removed_rows)
-                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    df_report.to_excel(writer, index=False, sheet_name='Removed Duplicates')
-                excel_data = excel_buffer.getvalue()
-            except ModuleNotFoundError:
-                excel_error = True
-
-        # Download Layout
-        dl_col1, dl_col2 = st.columns(2)
-        
-        with dl_col1:
-            json_output = json.dumps(final_cleaned_models, indent=2, ensure_ascii=False)
-            st.download_button(
-                label="⬇ Download Cleaned & Merged JSON",
-                data=json_output,
-                file_name="cleaned_oem_output.json",
-                mime="application/json",
-                use_container_width=True
-            )
-            
-        with dl_col2:
-            if excel_error:
-                # Fallback to CSV if openpyxl isn't installed to ensure the user gets their data anyway!
-                csv_buffer = io.StringIO()
-                pd.DataFrame(removed_rows).to_csv(csv_buffer, index=False)
-                st.download_button(
-                    label="📄 Download Duplicates Report (CSV Backup)",
-                    data=csv_buffer.getvalue(),
-                    file_name="removed_duplicate_models.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    help="Openpyxl missing on server. Provided CSV backup instead."
-                )
-            elif excel_data:
-                st.download_button(
-                    label="📄 Download Duplicates Excel Report",
-                    data=excel_data,
-                    file_name="removed_duplicate_models.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            else:
-                st.button("ℹ️ No Duplicates Found (Excel Empty)", disabled=True, use_container_width=True)
+        # Download Button
+        json_output = json.dumps(cleaned_models, indent=2, ensure_ascii=False)
+        st.download_button(
+            label="⬇ Download Cleaned & Merged JSON",
+            data=json_output,
+            file_name="cleaned_oem_output.json",
+            mime="application/json",
+            use_container_width=True
+        )
 
         with st.expander("Preview Optimized JSON (First 10 Records)"):
-            st.json(final_cleaned_models[:10], expanded=False)
+            st.json(cleaned_models[:10], expanded=False)
     else:
-        st.info("Upload JSON/ZIP files inside 'All In One' mode to automatically execute cross-field parsing, MSRP formatting, string conditioning, and multi-key deduplication.")
+        st.info("Upload JSON/ZIP files inside 'All In One' mode to automatically execute cross-field parsing, MSRP formatting, string conditioning, and processing.")
