@@ -9,7 +9,7 @@ import io
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="Merge & Clean Data Studio Pro",
+    page_title="OEM JSON Studio PRO",
     page_icon="🚀",
     layout="wide"
 )
@@ -27,6 +27,12 @@ NUMBER_MAP = {
     "8": "Eight", "9": "Nine"
 }
 
+# Duplicate resolution suffix map for numbers >= 2
+INDEX_WORD_MAP = {
+    2: "Two", 3: "Three", 4: "Four", 5: "Five", 
+    6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten"
+}
+
 # =========================
 # CAMELCASE HELPERS
 # =========================
@@ -36,7 +42,7 @@ def number_to_word(num):
 def to_camel_case(text, keep_number=False):
     """
     keep_number = True  → convert to word (1→One)
-    keep_number = False → remove numbers
+    keep_number = False → remove numbers entirely
     """
     text = re.sub(r'[^a-zA-Z0-9]+', ' ', text)
     words = re.findall(r'[A-Za-z0-9]+', text)
@@ -104,11 +110,12 @@ def process_json_keys_to_camel(data):
             elif isinstance(value, list):
                 value = [process_json_keys_to_camel(i) for i in value]
 
-            # Prevent duplication overwrites inside the same dictionary block
+            # Prevent duplication overwrites (Converts number indices to exact string words: 2 -> Two)
             final_key = correct_key
             count = 2
             while final_key in new_dict:
-                final_key = f"{correct_key}{count}"
+                suffix_word = INDEX_WORD_MAP.get(count, f"Copy{count}")
+                final_key = f"{correct_key}{suffix_word}"
                 count += 1
 
             new_dict[final_key] = value
@@ -300,8 +307,8 @@ st.markdown("""
 # HEADER CONTROL
 # =========================
 st.markdown("""
-<div class="main-title">🚀 Merge & Clean Data Studio</div>
-<div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into camelCase properties</div>
+<div class="main-title">🚀 OEM JSON Studio PRO</div>
+<div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into clean word-based camelCase properties</div>
 """, unsafe_allow_html=True)
 
 # =========================
@@ -359,7 +366,7 @@ if uploaded_files:
     
     progress.progress(0.6)
     
-    # Step 3: Run Dynamic camelCase Property Key Refactoring 
+    # Step 3: Run Dynamic camelCase Property Key Refactoring (Pure Words, No Digits)
     cleaned_models = process_json_keys_to_camel(cleaned_models)
     progress.progress(0.8)
     
