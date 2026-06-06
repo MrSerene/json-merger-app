@@ -9,7 +9,7 @@ import io
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="OEM JSON Studio PRO",
+    page_title="Merge & Clean Data Studio Pro",
     page_icon="🚀",
     layout="wide"
 )
