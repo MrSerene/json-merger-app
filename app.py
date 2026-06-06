@@ -202,7 +202,7 @@ st.markdown("""
 # HEADER
 # =========================
 st.markdown("""
-<div class="main-title">🚀 OEM JSON Studio</div>
+<div class="main-title">Merge And Clean Data</div>
 <div class="sub-title">Upload multiple JSON or ZIP files to automatically merge, clean, format, and optimize your datasets</div>
 """, unsafe_allow_html=True)
 
