@@ -5,6 +5,7 @@ import time
 import re
 import pandas as pd
 import io
+
 # =========================
 # PAGE CONFIG
 # =========================
@@ -360,17 +361,20 @@ elif tool == "🚀 All In One":
         col4.metric("Total Size (MB)", total_size)
         st.caption(f"Engine Runtime: {elapsed} seconds")
 
-        # Excel Report Generation in Memory
-        excel_buffer = io.BytesIO()
+        # Safe Excel Report Generation Wrapper (Prevents ModuleNotFoundError crashes)
+        excel_data = None
+        excel_error = False
         if removed_rows:
-            df_report = pd.DataFrame(removed_rows)
-            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                df_report.to_excel(writer, index=False, sheet_name='Removed Duplicates')
-            excel_data = excel_buffer.getvalue()
-        else:
-            excel_data = None
+            try:
+                excel_buffer = io.BytesIO()
+                df_report = pd.DataFrame(removed_rows)
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df_report.to_excel(writer, index=False, sheet_name='Removed Duplicates')
+                excel_data = excel_buffer.getvalue()
+            except ModuleNotFoundError:
+                excel_error = True
 
-        # Download Buttons
+        # Download Layout
         dl_col1, dl_col2 = st.columns(2)
         
         with dl_col1:
@@ -384,7 +388,19 @@ elif tool == "🚀 All In One":
             )
             
         with dl_col2:
-            if excel_data:
+            if excel_error:
+                # Fallback to CSV if openpyxl isn't installed to ensure the user gets their data anyway!
+                csv_buffer = io.StringIO()
+                pd.DataFrame(removed_rows).to_csv(csv_buffer, index=False)
+                st.download_button(
+                    label="📄 Download Duplicates Report (CSV Backup)",
+                    data=csv_buffer.getvalue(),
+                    file_name="removed_duplicate_models.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Openpyxl missing on server. Provided CSV backup instead."
+                )
+            elif excel_data:
                 st.download_button(
                     label="📄 Download Duplicates Excel Report",
                     data=excel_data,
