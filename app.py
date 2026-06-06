@@ -9,8 +9,8 @@ import io
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="OEM JSON Merger Studio",
-    page_icon="📦",
+    page_title="OEM JSON Merger & Cleaner Studio",
+    page_icon="🚀",
     layout="wide"
 )
 
@@ -202,20 +202,9 @@ st.markdown("""
 # HEADER
 # =========================
 st.markdown("""
-<div class="main-title">OEM JSON Merger Studio</div>
-<div class="sub-title">Upload JSON or ZIP files and generate a single merged/cleaned JSON file</div>
+<div class="main-title">🚀 OEM JSON Studio</div>
+<div class="sub-title">Upload multiple JSON or ZIP files to automatically merge, clean, format, and optimize your datasets</div>
 """, unsafe_allow_html=True)
-
-# =========================
-# TOOL MENU
-# =========================
-tool = st.sidebar.radio(
-    "Select Tool",
-    [
-        "📦 JSON Merger",
-        "🚀 All In One"
-    ]
-)
 
 # =========================
 # CORE FILE PARSER
@@ -245,100 +234,64 @@ def parse_uploaded_files(uploaded_files):
     return raw_data, invalid_files
 
 # =========================
-# TOOL 1: 📦 JSON MERGER
+# DYNAMIC PROCESSING PANEL
 # =========================
-if tool == "📦 JSON Merger":
-    uploaded_files = st.file_uploader("📂 Upload JSON or ZIP Files", type=["json", "zip"], accept_multiple_files=True, key="merger")
+uploaded_files = st.file_uploader("📂 Upload JSON or ZIP Files", type=["json", "zip"], accept_multiple_files=True, key="studio_uploader")
 
-    if uploaded_files:
-        start_time = time.time()
-        total_files = len(uploaded_files)
-        total_size = round(sum(file.size for file in uploaded_files) / (1024 * 1024), 2)
-        
-        progress = st.progress(0)
-        merged_data, invalid_files = parse_uploaded_files(uploaded_files)
-        progress.progress(1.0)
+if uploaded_files:
+    start_time = time.time()
+    total_files = len(uploaded_files)
+    total_size = round(sum(file.size for file in uploaded_files) / (1024 * 1024), 2)
+    
+    progress = st.progress(0)
+    
+    # 1. Parse and Merge Raw Data
+    raw_data, invalid_files = parse_uploaded_files(uploaded_files)
+    progress.progress(0.4)
 
-        # Sort Data
-        merged_data = sorted(
-            merged_data,
-            key=lambda x: (str(x.get("manufacturer", "")), str(x.get("model", "")), str(x.get("year", "")))
-        )
-        elapsed = round(time.time() - start_time, 2)
+    # 2. Execute Advanced Deep Cleaning Engine
+    cleaned_models = []
+    for model in raw_data:
+        model = clean_msrp_and_countries(model)
+        model = clean_specs_and_features(model)
+        model = remove_cross_duplicates(model)
+        model = clean_meta_and_attachments(model)
+        model = clean_whole_json(model)
+        cleaned_models.append(model)
+    
+    progress.progress(0.8)
+    
+    # 3. Alpha-Numeric Sorting (Manufacturer -> Model -> Year)
+    cleaned_models = sorted(
+        cleaned_models,
+        key=lambda x: (str(x.get("general", {}).get("manufacturer", "")), str(x.get("general", {}).get("model", "")), str(x.get("general", {}).get("year", "")))
+    )
+    
+    progress.progress(1.0)
+    elapsed = round(time.time() - start_time, 2)
 
-        st.success(f"Successfully merged {len(merged_data):,} records from {total_files} files.")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Files Uploaded", total_files)
-        col2.metric("Final Records", len(merged_data))
-        col3.metric("Invalid Files", invalid_files)
-        col4.metric("Size (MB)", total_size)
-        st.caption(f"Processed in {elapsed} seconds")
+    st.success(f"🔥 Optimization Complete! Successfully merged and cleaned {len(cleaned_models):,} records.")
 
-        with st.expander(f"Merged JSON Preview ({min(len(merged_data),10)} of {len(merged_data)} records)"):
-            st.json(merged_data[:10], expanded=False)
+    # KPI Metrics Layout
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Files Uploaded", total_files)
+    col2.metric("Optimized Records", len(cleaned_models))
+    col3.metric("Invalid Files Detected", invalid_files)
+    col4.metric("Total Input Size (MB)", total_size)
+    st.caption(f"Engine Runtime: {elapsed} seconds")
 
-        json_output = json.dumps(merged_data, indent=2, ensure_ascii=False)
-        st.download_button(label="⬇ Download Merged JSON", data=json_output, file_name="merged_output.json", mime="application/json", use_container_width=True)
-    else:
-        st.info("Upload one or more JSON or ZIP files to begin merging.")
+    # Master Download Button
+    json_output = json.dumps(cleaned_models, indent=2, ensure_ascii=False)
+    st.download_button(
+        label="⬇ Download Merged & Cleaned JSON",
+        data=json_output,
+        file_name="cleaned_oem_output.json",
+        mime="application/json",
+        use_container_width=True
+    )
 
-# =========================
-# TOOL 2: 🚀 ALL IN ONE (MERGE + CLEAN)
-# =========================
-elif tool == "🚀 All In One":
-    st.subheader("Processing Engine: Merge + Advanced Formatting & Cleaning")
-    uploaded_files = st.file_uploader("📂 Upload JSON or ZIP Files for Deep Cleaning", type=["json", "zip"], accept_multiple_files=True, key="cleaner")
-
-    if uploaded_files:
-        start_time = time.time()
-        total_files = len(uploaded_files)
-        total_size = round(sum(file.size for file in uploaded_files) / (1024 * 1024), 2)
-        
-        progress = st.progress(0)
-        raw_data, invalid_files = parse_uploaded_files(uploaded_files)
-        progress.progress(0.5)
-
-        # 1. Run Pipeline Cleaners
-        cleaned_models = []
-        for model in raw_data:
-            model = clean_msrp_and_countries(model)
-            model = clean_specs_and_features(model)
-            model = remove_cross_duplicates(model)
-            model = clean_meta_and_attachments(model)
-            model = clean_whole_json(model)
-            cleaned_models.append(model)
-        
-        progress.progress(0.8)
-        
-        # 2. Sort Data
-        cleaned_models = sorted(
-            cleaned_models,
-            key=lambda x: (str(x.get("general", {}).get("manufacturer", "")), str(x.get("general", {}).get("model", "")), str(x.get("general", {}).get("year", "")))
-        )
-        
-        progress.progress(1.0)
-        elapsed = round(time.time() - start_time, 2)
-
-        st.success(f"🔥 Optimization Complete! Processed {len(cleaned_models):,} clean records.")
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Files Uploaded", total_files)
-        col2.metric("Cleaned Records", len(cleaned_models))
-        col3.metric("Total Size (MB)", total_size)
-        st.caption(f"Engine Runtime: {elapsed} seconds")
-
-        # Download Button
-        json_output = json.dumps(cleaned_models, indent=2, ensure_ascii=False)
-        st.download_button(
-            label="⬇ Download Cleaned & Merged JSON",
-            data=json_output,
-            file_name="cleaned_oem_output.json",
-            mime="application/json",
-            use_container_width=True
-        )
-
-        with st.expander("Preview Optimized JSON (First 10 Records)"):
-            st.json(cleaned_models[:10], expanded=False)
-    else:
-        st.info("Upload JSON/ZIP files inside 'All In One' mode to automatically execute cross-field parsing, MSRP formatting, string conditioning, and processing.")
+    # JSON Interactive Preview Sheet
+    with st.expander(f"👁️ Merged JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)"):
+        st.json(cleaned_models[:10], expanded=False)
+else:
+    st.info("Upload one or more JSON or ZIP files to automatically trigger the parsing, merging, and global standard cleaning pipeline.")
