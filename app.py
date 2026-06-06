@@ -300,7 +300,7 @@ st.markdown("""
 # HEADER CONTROL
 # =========================
 st.markdown("""
-<div class="main-title">🚀 OEM JSON Studio PRO</div>
+<div class="main-title">🚀 Merge & Clean Data Studio</div>
 <div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into camelCase properties</div>
 """, unsafe_allow_html=True)
 
