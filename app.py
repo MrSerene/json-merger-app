@@ -249,7 +249,8 @@ def clean_specs_and_features(model):
     if not isinstance(features, list):
         features = []
 
-    spec_headers = ["engine", "hydraulics", "electrical", "driveTrain", "weights", "measurements", "body", "operational", "other"]
+    # Custom specifications block sorting using context guidelines
+    spec_headers = ["dimensions", "engine", "drivetrain", "operational", "hydraulics", "electrical", "weights", "measurements", "body", "other"]
     for header in spec_headers:
         if header in model:
             cleaned_section = clean_specs_section(model[header], features)
@@ -425,8 +426,10 @@ if uploaded_files:
         use_container_width=True
     )
 
-    # Preview Sheet (Advanced Interactive JSON Editor Tree Node)
-    st.markdown("### 👁️ Interactive JSON Editor Preview")
-    st.json(cleaned_models[:10], expanded=False)
+    # Preview Sheet (Formatted Editor Raw Object Block Viewer)
+    with st.expander(f"👁️ Refactored JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)", expanded=True):
+        preview_data = cleaned_models[:10]
+        preview_json_string = json.dumps(preview_data, indent=2, ensure_ascii=False)
+        st.code(preview_json_string, language="json")
 else:
     st.info("Upload one or more files to start the automatic merge, deep content cleaning, and spec camelCase formatting engine.")
