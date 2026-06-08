@@ -9,7 +9,7 @@ import io
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="Merge & Clean Data Studio",
+    page_title="OEM JSON Studio PRO",
     page_icon="🚀",
     layout="wide"
 )
@@ -27,9 +27,9 @@ NUMBER_MAP = {
     "8": "Eight", "9": "Nine"
 }
 
-# Duplicate resolution suffix map for numbers >= 2
+# Suffix conversion map for dynamic true-duplicates
 INDEX_WORD_MAP = {
-    2: "Two", 3: "Three", 4: "Four", 5: "Five", 
+    1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 
     6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten"
 }
 
@@ -79,44 +79,66 @@ def get_base_label(label):
     return re.sub(r'\d+', '', label).strip().lower()
 
 # =========================
-# DYNAMIC CAMELCASE PROCESSOR
+# DYNAMIC SMART CAMELCASE PROCESSOR
 # =========================
 def process_json_keys_to_camel(data):
     if isinstance(data, dict):
-        # First pass: detect duplicate base labels in the current structure level
-        label_count = {}
+        # 1. Analyze current level to find conflicting labels with DIFFERENT desc values
+        base_label_descs = {} # Format: { base_label: [desc1, desc2] }
+        
         for value in data.values():
-            if isinstance(value, dict) and "label" in value:
+            if isinstance(value, dict) and "label" in value and "desc" in value:
                 base = get_base_label(value["label"])
-                label_count[base] = label_count.get(base, 0) + 1
+                desc_val = str(value["desc"]).strip()
+                if base not in base_label_descs:
+                    base_label_descs[base] = []
+                if desc_val not in base_label_descs[base]:
+                    base_label_descs[base].append(desc_val)
 
+        # 2. Build the updated block
         new_dict = {}
+        # Keep track of active word index mapping for true uniqueness tracking
+        base_label_tracking = {} 
+
         for key, value in data.items():
             if isinstance(value, dict) and "label" in value and "desc" in value:
                 label = value["label"]
                 base = get_base_label(label)
+                desc_val = str(value["desc"]).strip()
 
-                # Decide rule based on count duplication
-                if label_count.get(base, 0) > 1:
-                    correct_key = to_camel_case(label, keep_number=True)
-                else:
+                # Rule Condition Check: Same base label but multiple unique descriptions exist
+                if len(base_label_descs.get(base, [])) > 1:
+                    # Treat as dynamic dynamic sequence (Applies word-suffixes: One, Two, Three)
                     correct_key = to_camel_case(label, keep_number=False)
+                    
+                    if base not in base_label_tracking:
+                        base_label_tracking[base] = []
+                    
+                    if desc_val not in base_label_tracking[base]:
+                        base_label_tracking[base].append(desc_val)
+                    
+                    # Match the current unique desc position to determine the text word suffix
+                    idx = base_label_tracking[base].index(desc_val) + 1
+                    suffix_word = INDEX_WORD_MAP.get(idx, f"Copy{idx}")
+                    final_key = f"{correct_key}{suffix_word}"
+                else:
+                    # Same label and same desc or entirely unique normal spec item -> Strip digits safely
+                    final_key = to_camel_case(label, keep_number=False)
             else:
-                correct_key = key
+                final_key = key
 
-            # Run recursion for deep nested nodes
+            # Run deeper node recursions
             if isinstance(value, dict):
                 value = process_json_keys_to_camel(value)
             elif isinstance(value, list):
                 value = [process_json_keys_to_camel(i) for i in value]
 
-            # Prevent duplication overwrites (Converts number indices to exact string words: 2 -> Two)
-            final_key = correct_key
-            count = 2
-            while final_key in new_dict:
-                suffix_word = INDEX_WORD_MAP.get(count, f"Copy{count}")
-                final_key = f"{correct_key}{suffix_word}"
-                count += 1
+            # Direct fallback condition to strictly ensure structural integrity 
+            if final_key in new_dict and isinstance(value, dict) and "desc" in value:
+                if str(new_dict[final_key].get("desc")).strip() == str(value.get("desc")).strip():
+                    # Exact redundant entry found -> Safely update/overwrite without duplicating suffixes
+                    new_dict[final_key] = value
+                    continue
 
             new_dict[final_key] = value
         return new_dict
@@ -307,8 +329,8 @@ st.markdown("""
 # HEADER CONTROL
 # =========================
 st.markdown("""
-<div class="main-title">🚀 Merge & Clean Data Studio</div>
-<div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into clean word-based camelCase properties</div>
+<div class="main-title">🚀 OEM JSON Studio PRO</div>
+<div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into clean conditional camelCase properties</div>
 """, unsafe_allow_html=True)
 
 # =========================
@@ -366,7 +388,7 @@ if uploaded_files:
     
     progress.progress(0.6)
     
-    # Step 3: Run Dynamic camelCase Property Key Refactoring (Pure Words, No Digits)
+    # Step 3: Run Smart Conditional camelCase Key Conversion Engine
     cleaned_models = process_json_keys_to_camel(cleaned_models)
     progress.progress(0.8)
     
@@ -403,8 +425,8 @@ if uploaded_files:
         use_container_width=True
     )
 
-    # Preview Sheet
-    with st.expander(f"👁️ Refactored JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)"):
-        st.json(cleaned_models[:10], expanded=False)
+    # Preview Sheet (Advanced Interactive JSON Editor Tree Node)
+    st.markdown("### 👁️ Interactive JSON Editor Preview")
+    st.json(cleaned_models[:10], expanded=False)
 else:
     st.info("Upload one or more files to start the automatic merge, deep content cleaning, and spec camelCase formatting engine.")
