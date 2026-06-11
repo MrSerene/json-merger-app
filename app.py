@@ -4,6 +4,9 @@ import zipfile
 import time
 import re
 import io
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # =========================
 # PAGE CONFIG
@@ -15,12 +18,12 @@ st.set_page_config(
 )
 
 # =========================
-# SIDEBAR NAVIGATION (Slide / Mode Selector)
+# SIDEBAR NAVIGATION (Slide Selector)
 # =========================
 st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio(
     "Choose Tool / Work Mode:",
-    ["🚀 OEM JSON Studio PRO", "🛠️ Tool 2: Another Work"]
+    ["🚀 OEM JSON Studio PRO", "📊 Model Comparison"]
 )
 
 # =========================
@@ -206,7 +209,6 @@ if app_mode == "🚀 OEM JSON Studio PRO":
         features = model.get("features", [])
         if not isinstance(features, list): features = []
 
-        # Note: Order updated as per global specs requirement (dimensions, engine, drivetrain, operational)
         spec_headers = ["dimensions", "engine", "drivetrain", "operational", "hydraulics", "electrical", "weights", "measurements", "body", "other"]
         for header in spec_headers:
             if header in model:
@@ -271,7 +273,7 @@ if app_mode == "🚀 OEM JSON Studio PRO":
             return clean_string_global(obj)
         return obj
 
-    # --- UI CUSTOM GRAPHICS CSS ---
+    # --- UI GRAPHICS ---
     st.markdown("""
     <style>
     .block-container{ max-width:1200px; padding-top:2rem; }
@@ -285,7 +287,6 @@ if app_mode == "🚀 OEM JSON Studio PRO":
     <div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into clean word-based camelCase properties</div>
     """, unsafe_allow_html=True)
 
-    # --- PARSER ---
     def parse_uploaded_files(uploaded_files):
         raw_data = []
         invalid_files = 0
@@ -310,7 +311,6 @@ if app_mode == "🚀 OEM JSON Studio PRO":
                 invalid_files += 1
         return raw_data, invalid_files
 
-    # --- PIPELINE VIEW ---
     uploaded_files = st.file_uploader("📂 Upload JSON or ZIP Files", type=["json", "zip"], accept_multiple_files=True, key="studio_pro_uploader")
 
     if uploaded_files:
@@ -373,17 +373,156 @@ if app_mode == "🚀 OEM JSON Studio PRO":
         st.info("Upload one or more files to start the automatic merge, deep content cleaning, and spec camelCase formatting engine.")
 
 # =========================
-# MODE 2: ANOTHER WORK (SLIDE 2)
+# MODE 2: MODEL COMPARISON
 # =========================
-elif app_mode == "🛠️ Tool 2: Another Work":
-    st.title("🛠️ Tool 2: Another Work Dashboard")
-    st.write("Yahan aap apna dusra code/functionality add kar sakte hain.")
-    
-    # Example elements for your new tool:
-    uploaded_file_2 = st.file_uploader("📂 Upload files for Tool 2", type=["csv", "txt", "json"], key="tool_2_uploader")
-    
-    if uploaded_file_2:
-        st.success("File uploaded successfully in Tool 2!")
-        # Aapka custom logic yahan aayega
+elif app_mode == "📊 Model Comparison":
+    st.markdown("""
+    <style>
+    .block-container{ max-width:1200px; padding-top:2rem; }
+    .main-title{ text-align:center; font-size:42px; font-weight:700; margin-bottom:10px; }
+    .sub-title{ text-align:center; font-size:18px; color:#666; margin-bottom:30px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="main-title">📊 Model Comparison Engine</div>
+    <div class="sub-title">Upload your input Excel file containing 'OEM' and 'Prod' sheets to match models and generate final statuses</div>
+    """, unsafe_allow_html=True)
+
+    # --- HELPERS ---
+    def tokenize_model(model_name):
+        if pd.isna(model_name):
+            return set()
+        name = str(model_name).lower()
+        name = name.replace("crew cab", "crewcab")
+        name = name.replace("regular cab", "regularcab")
+        name = name.replace("mega cab", "megacab")
+        tokens = re.findall(r'[a-z]+|\d+x\d+|\d+', name)
+        return set(tokens)
+
+    uploaded_excel = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"], key="comparison_uploader")
+
+    if uploaded_excel:
+        try:
+            with st.spinner("Processing Excel Sheets..."):
+                # Load DataFrames for background computation
+                oem_df = pd.read_excel(uploaded_excel, sheet_name="OEM")
+                prod_df = pd.read_excel(uploaded_excel, sheet_name="Prod")
+
+                # Safety Nets
+                for df in (oem_df, prod_df):
+                    if 'URL' not in df.columns:
+                        df['URL'] = ''
+                    if 'Status' not in df.columns:
+                        df['Status'] = pd.NA
+
+                # Tokenization
+                oem_df['Model_Tokens'] = oem_df['Model Name'].apply(tokenize_model)
+                prod_df['Model_Tokens'] = prod_df['Model Name'].apply(tokenize_model)
+
+                # Matching Algorithm
+                matched_rows = []
+                matched_prod_indexes = set()
+
+                for oem_idx, oem_row in oem_df.iterrows():
+                    oem_tokens = oem_row['Model_Tokens']
+                    match_found = False
+
+                    for prod_idx, prod_row in prod_df.iterrows():
+                        if prod_idx in matched_prod_indexes:
+                            continue
+
+                        prod_tokens = prod_row['Model_Tokens']
+
+                        if oem_tokens == prod_tokens:
+                            prod_df.at[prod_idx, 'Status'] = 'Exist'
+                            oem_df.at[oem_idx, 'Status'] = 'Exist'
+                            matched_prod_indexes.add(prod_idx)
+                            match_found = True
+
+                            matched_rows.append({
+                                'OEM URL': oem_row['URL'],
+                                'OEM Model': oem_row['Model Name'],
+                                'Prod URL': prod_row['URL'],
+                                'Prod Model': prod_row['Model Name']
+                            })
+                            break
+
+                    if not match_found:
+                        oem_df.at[oem_idx, 'Status'] = 'New'
+
+                prod_df.loc[prod_df['Status'].isna(), 'Status'] = 'Discontinued'
+
+                # Duplicate Handling
+                prod_df['Token_Key'] = prod_df['Model_Tokens'].apply(lambda x: tuple(sorted(x)))
+                dup_groups = prod_df.groupby('Token_Key').filter(lambda x: len(x) > 1)
+
+                for _, group in dup_groups.groupby('Token_Key'):
+                    first_idx = group.index[0]
+                    prod_df.at[first_idx, 'Status'] = (
+                        f"{prod_df.at[first_idx, 'Model Name']} "
+                        f"({prod_df.at[first_idx, 'Status']})"
+                    )
+                    for idx in group.index[1:]:
+                        prod_df.at[idx, 'Status'] = f"{prod_df.at[idx, 'Model Name']} (Duplicate)"
+
+                matched_df = pd.DataFrame(matched_rows)
+
+                # Write directly to openpyxl via in-memory buffer
+                uploaded_excel.seek(0) # Reset stream pointer
+                wb = load_workbook(uploaded_excel)
+
+                def write_status(sheet_name, df):
+                    sheet = wb[sheet_name]
+                    sheet.cell(1, 3).value = 'Status'
+                    for i, status in enumerate(df['Status'], start=2):
+                        sheet.cell(i, 3).value = status
+
+                write_status('Prod', prod_df)
+                write_status('OEM', oem_df)
+
+                if 'Matched Models' in wb.sheetnames:
+                    del wb['Matched Models']
+
+                match_sheet = wb.create_sheet('Matched Models')
+                for r in dataframe_to_rows(matched_df, index=False, header=True):
+                    match_sheet.append(r)
+
+                # Save workbook to memory buffer instead of disk
+                output_stream = io.BytesIO()
+                wb.save(output_stream)
+                output_data = output_stream.getvalue()
+
+                # Success Notification
+                st.success("✅ Model comparison completed successfully!")
+
+                # Auto-generate dynamic file name
+                base_name = os.path.splitext(uploaded_excel.name)[0]
+                output_filename = f"{base_name}-latest.xlsx"
+
+                # Download Button
+                st.download_button(
+                    label="⬇ Download Processed Excel File",
+                    data=output_data,
+                    file_name=output_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+                # Optional Preview tabs
+                tab1, tab2, tab3 = st.tabs(["OEM Sheet Preview", "Prod Sheet Preview", "Matched Models"])
+                with tab1:
+                    st.dataframe(oem_df[['Model Name', 'Status', 'URL']].head(50), use_container_width=True)
+                with tab2:
+                    st.dataframe(prod_df[['Model Name', 'Status', 'URL']].head(50), use_container_width=True)
+                with tab3:
+                    if not matched_df.empty:
+                        st.dataframe(matched_df.head(50), use_container_width=True)
+                    else:
+                        st.info("No explicit matches found.")
+
+        except Exception as e:
+            st.error(f"❌ Error processing file: {str(e)}")
+            st.warning("Please make sure your Excel sheet contains exactly 'OEM' and 'Prod' tab names with proper headers.")
     else:
-        st.info("Awaiting file upload for the second utility tool.")
+        st.info("Awaiting Excel configuration upload to initialize token analysis.")
