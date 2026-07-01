@@ -8,6 +8,7 @@ import os  # <-- Yeh line missing thi, ise add kar diya hai
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
+
 # =========================
 # PAGE CONFIG
 # =========================
@@ -55,33 +56,38 @@ if app_mode == "🚀 OEM JSON Studio PRO":
         text = re.sub(r'[^a-zA-Z0-9]+', ' ', text)
         words = re.findall(r'[A-Za-z0-9]+', text)
         cleaned = []
+        
         for word in words:
             if word.isdigit():
                 if keep_number:
-                    cleaned.append(number_to_word(word))
+                    # Split into individual digits to handle capitalization properly later
+                    for digit in word:
+                        if digit in NUMBER_MAP:
+                            cleaned.append(NUMBER_MAP[digit])
                 continue
+            
             if re.search(r'[a-zA-Z]', word) and re.search(r'\d', word):
-                match = re.match(r'([a-zA-Z]+)(\d+)$', word)
-                if match:
-                    letters, digits = match.groups()
-                    if keep_number:
-                        word = letters + number_to_word(digits)
+                # Split letters and digits into separate sub-tokens
+                sub_tokens = re.findall(r'[a-zA-Z]+|\d+', word)
+                for token in sub_tokens:
+                    if token.isdigit():
+                        if keep_number:
+                            for digit in token:
+                                if digit in NUMBER_MAP:
+                                    cleaned.append(NUMBER_MAP[digit])
                     else:
-                        word = letters
-                    cleaned.append(word)
-                else:
-                    word = re.sub(r'\d+', '', word)
-                    if word:
-                        cleaned.append(word)
+                        cleaned.append(token)
             else:
                 cleaned.append(word)
+                
         if not cleaned:
             return ""
+            
         return cleaned[0].lower() + ''.join(w.capitalize() for w in cleaned[1:])
 
     def get_base_label(label):
         return re.sub(r'\d+', '', label).strip().lower()
-
+    
     # --- DYNAMIC CAMELCASE PROCESSOR ---
     def process_json_keys_to_camel(data):
         if isinstance(data, dict):
