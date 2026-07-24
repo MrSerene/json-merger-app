@@ -24,13 +24,13 @@ st.set_page_config(
 st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio(
     "Choose Tool / Work Mode:",
-    ["🚀 OEM JSON Studio PRO", "📊 Model Comparison"]
+    ["🚀 Json Merged And Clean Data", "📊 Model Comparison"]
 )
 
 # =========================
-# MODE 1: OEM JSON STUDIO PRO
+# MODE 1: Json Merged And Clean Data
 # =========================
-if app_mode == "🚀 OEM JSON Studio PRO":
+if app_mode == "🚀 Json Merged And Clean Data":
 
     # CONFIG & MAPS
     REMOVE_VALUES = {"no", "not applicable", "not available", "0"}
@@ -289,7 +289,7 @@ if app_mode == "🚀 OEM JSON Studio PRO":
     """, unsafe_allow_html=True)
 
     st.markdown("""
-    <div class="main-title">🚀 OEM JSON Studio PRO</div>
+    <div class="main-title">🚀 Json Merged And Clean Data</div>
     <div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into clean word-based camelCase properties</div>
     """, unsafe_allow_html=True)
 
