@@ -391,7 +391,7 @@ elif app_mode == "📊 Model Comparison":
     """, unsafe_allow_html=True)
 
     st.markdown("""
-    <div class="main-title">📊 Model Comparison Engine</div>
+    <div class="main-title">📊 Model Comparison</div>
     <div class="sub-title">Upload your input Excel file containing 'OEM' and 'Prod' sheets to match models and generate final statuses</div>
     """, unsafe_allow_html=True)
 
