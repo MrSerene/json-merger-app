@@ -342,15 +342,16 @@ if app_mode == "🚀 Json Merged And Clean Data":
         cleaned_models = process_json_keys_to_camel(cleaned_models)
         progress.progress(0.8)
         
-        # Sorting (Merged & Single dono cases me structured sort lagayenge)
-        cleaned_models = sorted(
-            cleaned_models,
-            key=lambda x: (
-                str(x.get("general", {}).get("manufacturer", "")), 
-                str(x.get("general", {}).get("model", "")), 
-                str(x.get("general", {}).get("year", ""))
+        # Multiple files me merge/sort hoga, Single file me original sequence (0, 1, 2...) exact preserve rahega
+        if is_merged_mode:
+            cleaned_models = sorted(
+                cleaned_models,
+                key=lambda x: (
+                    str(x.get("general", {}).get("manufacturer", "")), 
+                    str(x.get("general", {}).get("model", "")), 
+                    str(x.get("general", {}).get("year", ""))
+                )
             )
-        )
         
         progress.progress(1.0)
         elapsed = round(time.time() - start_time, 2)
@@ -358,12 +359,12 @@ if app_mode == "🚀 Json Merged And Clean Data":
         if is_merged_mode:
             st.success(f"🔥 Multi-file Merge & Optimization Complete! Processed {len(cleaned_models):,} structured records from {total_files} files.")
         else:
-            st.success(f"🔥 Single JSON Cleaning & Refactoring Complete! Processed {len(cleaned_models):,} structured records (Merge skipped as single file uploaded).")
+            st.success(f"🔥 Single JSON Cleaning Complete! Processed {len(cleaned_models):,} structured records in original sequence.")
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Files Uploaded", total_files)
         col2.metric("Processed Records", len(cleaned_models))
-        col3.metric("Mode Active", "Merge + Clean" if is_merged_mode else "Clean Only")
+        col3.metric("Mode Active", "Merge + Clean" if is_merged_mode else "Clean (Sequence Preserved)")
         col4.metric("Total Size (MB)", total_size)
         st.caption(f"Engine Process Time: {elapsed} seconds")
 
