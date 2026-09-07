@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # =========================
-# SIDEBAR NAVIGATION (Slide Selector)
+# SIDEBAR NAVIGATION
 # =========================
 st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio(
@@ -44,14 +44,11 @@ if app_mode == "🚀 Json Merged And Clean Data":
     }
 
     INDEX_WORD_MAP = {
-        2: "Two", 3: "Three", 4: "Four", 5: "Five", 
+        1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 
         6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten"
     }
 
     # --- CAMELCASE HELPERS ---
-    def number_to_word(num):
-        return ''.join(NUMBER_MAP[d] for d in num if d in NUMBER_MAP)
-
     def to_camel_case(text, keep_number=False):
         text = re.sub(r'[^a-zA-Z0-9]+', ' ', text)
         words = re.findall(r'[A-Za-z0-9]+', text)
@@ -86,7 +83,7 @@ if app_mode == "🚀 Json Merged And Clean Data":
     def get_base_label(label):
         return re.sub(r'\d+', '', label).strip().lower()
     
-    # --- DYNAMIC CAMELCASE PROCESSOR ---
+    # --- DYNAMIC CAMELCASE PROCESSOR WITH DUPLICATE SUFFIX (One, Two...) ---
     def process_json_keys_to_camel(data):
         if isinstance(data, dict):
             label_count = {}
@@ -96,10 +93,13 @@ if app_mode == "🚀 Json Merged And Clean Data":
                     label_count[base] = label_count.get(base, 0) + 1
 
             new_dict = {}
+            key_tracker = {}
+
             for key, value in data.items():
                 if isinstance(value, dict) and "label" in value and "desc" in value:
                     label = value["label"]
                     base = get_base_label(label)
+                    
                     if label_count.get(base, 0) > 1:
                         correct_key = to_camel_case(label, keep_number=True)
                     else:
@@ -112,12 +112,19 @@ if app_mode == "🚀 Json Merged And Clean Data":
                 elif isinstance(value, list):
                     value = [process_json_keys_to_camel(i) for i in value]
 
-                final_key = correct_key
-                count = 2
-                while final_key in new_dict:
-                    suffix_word = INDEX_WORD_MAP.get(count, f"Copy{count}")
+                # Duplicate Spec Key Logic: Append 'One', 'Two', etc.
+                if correct_key in key_tracker:
+                    count = key_tracker[correct_key] + 1
+                    key_tracker[correct_key] = count
+                    suffix_word = INDEX_WORD_MAP.get(count - 1, f"Copy{count}")
+                    
+                    # Update label and key for duplicates
+                    if isinstance(value, dict) and "label" in value:
+                        value["label"] = f"{value['label']} {suffix_word}"
                     final_key = f"{correct_key}{suffix_word}"
-                    count += 1
+                else:
+                    key_tracker[correct_key] = 1
+                    final_key = correct_key
 
                 new_dict[final_key] = value
             return new_dict
@@ -181,9 +188,10 @@ if app_mode == "🚀 Json Merged And Clean Data":
 
     def clean_msrp_and_countries(model):
         general = model.get("general", {})
-        general["msrp"] = clean_msrp_value(general.get("msrp"))
+        if "msrp" in general:
+            general["msrp"] = clean_msrp_value(general.get("msrp"))
         countries = general.get("countries", [])
-        if not isinstance(countries, list) or sorted(countries) != ["CA", "US"]:
+        if isinstance(countries, list) and countries and sorted(countries) != ["CA", "US"]:
             general["countries"] = ["US", "CA"]
         model["general"] = general
         return model
@@ -209,7 +217,9 @@ if app_mode == "🚀 Json Merged And Clean Data":
 
     def clean_specs_and_features(model):
         model.setdefault("general", {})
-        model["general"]["msrp"] = clean_msrp_value(model["general"].get("msrp"))
+        if "msrp" in model["general"]:
+            model["general"]["msrp"] = clean_msrp_value(model["general"].get("msrp"))
+            
         features = model.get("features", [])
         if not isinstance(features, list): features = []
 
@@ -288,7 +298,7 @@ if app_mode == "🚀 Json Merged And Clean Data":
 
     st.markdown("""
     <div class="main-title">🚀 Json Merged And Clean Data</div>
-    <div class="sub-title">Upload files to merge (if >1), clean, parse MSRP, optimize, and standardize specs into clean camelCase properties</div>
+    <div class="sub-title">Upload files to merge (if >1), clean noise, handle duplicate specs with 'One' suffix, and preserve exact sequence</div>
     """, unsafe_allow_html=True)
 
     def parse_uploaded_files(uploaded_files):
@@ -326,7 +336,6 @@ if app_mode == "🚀 Json Merged And Clean Data":
         raw_data, invalid_files = parse_uploaded_files(uploaded_files)
         progress.progress(0.3)
 
-        # Merge check: Multiple files honge tabhi Merge Mode activate hoga
         is_merged_mode = total_files > 1
 
         cleaned_models = []
@@ -342,7 +351,6 @@ if app_mode == "🚀 Json Merged And Clean Data":
         cleaned_models = process_json_keys_to_camel(cleaned_models)
         progress.progress(0.8)
         
-        # Multiple files me merge/sort hoga, Single file me original sequence (0, 1, 2...) exact preserve rahega
         if is_merged_mode:
             cleaned_models = sorted(
                 cleaned_models,
@@ -357,14 +365,14 @@ if app_mode == "🚀 Json Merged And Clean Data":
         elapsed = round(time.time() - start_time, 2)
 
         if is_merged_mode:
-            st.success(f"🔥 Multi-file Merge & Optimization Complete! Processed {len(cleaned_models):,} structured records from {total_files} files.")
+            st.success(f"🔥 Multi-file Merge & Cleaning Complete! Processed {len(cleaned_models):,} records from {total_files} files.")
         else:
-            st.success(f"🔥 Single JSON Cleaning Complete! Processed {len(cleaned_models):,} structured records in original sequence.")
+            st.success(f"🔥 Single JSON Cleaning Complete! Processed {len(cleaned_models):,} records with duplicate spec suffixes applied.")
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Files Uploaded", total_files)
         col2.metric("Processed Records", len(cleaned_models))
-        col3.metric("Mode Active", "Merge + Clean" if is_merged_mode else "Clean (Sequence Preserved)")
+        col3.metric("Mode Active", "Merge + Clean" if is_merged_mode else "Clean (Exact Sequence Kept)")
         col4.metric("Total Size (MB)", total_size)
         st.caption(f"Engine Process Time: {elapsed} seconds")
 
@@ -379,12 +387,12 @@ if app_mode == "🚀 Json Merged And Clean Data":
             use_container_width=True
         )
 
-        with st.expander(f"👁️ Refactored JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)"):
+        with st.expander(f"👁️ JSON Preview ({min(len(cleaned_models),10)} of {len(cleaned_models)} records)"):
             preview_data = cleaned_models[:10]
             preview_json_string = json.dumps(preview_data, indent=2, ensure_ascii=False)
             st.code(preview_json_string, language="json")
     else:
-        st.info("Upload one or more files to start the JSON cleaning and spec camelCase formatting engine.")
+        st.info("Upload one or more files to start JSON cleaning and camelCase duplicate spec handling.")
 
 # =========================
 # MODE 2: MODEL COMPARISON
@@ -403,7 +411,6 @@ elif app_mode == "📊 Model Comparison":
     <div class="sub-title">Upload your input Excel file containing 'OEM' and 'Prod' sheets to match models and generate final statuses</div>
     """, unsafe_allow_html=True)
 
-    # --- HELPERS ---
     def tokenize_model(model_name):
         if pd.isna(model_name):
             return set()
