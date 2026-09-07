@@ -4,7 +4,7 @@ import zipfile
 import time
 import re
 import io
-import os  # <-- Yeh line missing thi, ise add kar diya hai
+import os
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -60,14 +60,12 @@ if app_mode == "🚀 Json Merged And Clean Data":
         for word in words:
             if word.isdigit():
                 if keep_number:
-                    # Split into individual digits to handle capitalization properly later
                     for digit in word:
                         if digit in NUMBER_MAP:
                             cleaned.append(NUMBER_MAP[digit])
                 continue
             
             if re.search(r'[a-zA-Z]', word) and re.search(r'\d', word):
-                # Split letters and digits into separate sub-tokens
                 sub_tokens = re.findall(r'[a-zA-Z]+|\d+', word)
                 for token in sub_tokens:
                     if token.isdigit():
@@ -290,7 +288,7 @@ if app_mode == "🚀 Json Merged And Clean Data":
 
     st.markdown("""
     <div class="main-title">🚀 Json Merged And Clean Data</div>
-    <div class="sub-title">Upload files to merge, clean, parse MSRP, optimize, and standardize specs into clean word-based camelCase properties</div>
+    <div class="sub-title">Upload files to merge (if >1), clean, parse MSRP, optimize, and standardize specs into clean camelCase properties</div>
     """, unsafe_allow_html=True)
 
     def parse_uploaded_files(uploaded_files):
@@ -328,6 +326,9 @@ if app_mode == "🚀 Json Merged And Clean Data":
         raw_data, invalid_files = parse_uploaded_files(uploaded_files)
         progress.progress(0.3)
 
+        # Merge check: Multiple files honge tabhi Merge Mode activate hoga
+        is_merged_mode = total_files > 1
+
         cleaned_models = []
         for model in raw_data:
             model = clean_msrp_and_countries(model)
@@ -341,6 +342,7 @@ if app_mode == "🚀 Json Merged And Clean Data":
         cleaned_models = process_json_keys_to_camel(cleaned_models)
         progress.progress(0.8)
         
+        # Sorting (Merged & Single dono cases me structured sort lagayenge)
         cleaned_models = sorted(
             cleaned_models,
             key=lambda x: (
@@ -353,20 +355,25 @@ if app_mode == "🚀 Json Merged And Clean Data":
         progress.progress(1.0)
         elapsed = round(time.time() - start_time, 2)
 
-        st.success(f"🔥 Optimization & Refactoring Complete! Processed {len(cleaned_models):,} structured records.")
+        if is_merged_mode:
+            st.success(f"🔥 Multi-file Merge & Optimization Complete! Processed {len(cleaned_models):,} structured records from {total_files} files.")
+        else:
+            st.success(f"🔥 Single JSON Cleaning & Refactoring Complete! Processed {len(cleaned_models):,} structured records (Merge skipped as single file uploaded).")
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Files Uploaded", total_files)
-        col2.metric("Optimized Records", len(cleaned_models))
-        col3.metric("Invalid Files Detected", invalid_files)
+        col2.metric("Processed Records", len(cleaned_models))
+        col3.metric("Mode Active", "Merge + Clean" if is_merged_mode else "Clean Only")
         col4.metric("Total Size (MB)", total_size)
         st.caption(f"Engine Process Time: {elapsed} seconds")
 
+        output_filename = "merged_cleaned_camelcase_oem_output.json" if is_merged_mode else "cleaned_camelcase_oem_output.json"
+
         json_output = json.dumps(cleaned_models, indent=2, ensure_ascii=False)
         st.download_button(
-            label="⬇ Download Merged, Cleaned & CamelCase JSON",
+            label=f"⬇ Download {'Merged & ' if is_merged_mode else ''}Cleaned CamelCase JSON",
             data=json_output,
-            file_name="cleaned_camelcase_oem_output.json",
+            file_name=output_filename,
             mime="application/json",
             use_container_width=True
         )
@@ -376,7 +383,7 @@ if app_mode == "🚀 Json Merged And Clean Data":
             preview_json_string = json.dumps(preview_data, indent=2, ensure_ascii=False)
             st.code(preview_json_string, language="json")
     else:
-        st.info("Upload one or more files to start the automatic merge, deep content cleaning, and spec camelCase formatting engine.")
+        st.info("Upload one or more files to start the JSON cleaning and spec camelCase formatting engine.")
 
 # =========================
 # MODE 2: MODEL COMPARISON
@@ -411,22 +418,18 @@ elif app_mode == "📊 Model Comparison":
     if uploaded_excel:
         try:
             with st.spinner("Processing Excel Sheets..."):
-                # Load DataFrames for background computation
                 oem_df = pd.read_excel(uploaded_excel, sheet_name="OEM")
                 prod_df = pd.read_excel(uploaded_excel, sheet_name="Prod")
 
-                # Safety Nets
                 for df in (oem_df, prod_df):
                     if 'URL' not in df.columns:
                         df['URL'] = ''
                     if 'Status' not in df.columns:
                         df['Status'] = pd.NA
 
-                # Tokenization
                 oem_df['Model_Tokens'] = oem_df['Model Name'].apply(tokenize_model)
                 prod_df['Model_Tokens'] = prod_df['Model Name'].apply(tokenize_model)
 
-                # Matching Algorithm
                 matched_rows = []
                 matched_prod_indexes = set()
 
@@ -474,8 +477,7 @@ elif app_mode == "📊 Model Comparison":
 
                 matched_df = pd.DataFrame(matched_rows)
 
-                # Write directly to openpyxl via in-memory buffer
-                uploaded_excel.seek(0) # Reset stream pointer
+                uploaded_excel.seek(0)
                 wb = load_workbook(uploaded_excel)
 
                 def write_status(sheet_name, df):
@@ -494,19 +496,15 @@ elif app_mode == "📊 Model Comparison":
                 for r in dataframe_to_rows(matched_df, index=False, header=True):
                     match_sheet.append(r)
 
-                # Save workbook to memory buffer instead of disk
                 output_stream = io.BytesIO()
                 wb.save(output_stream)
                 output_data = output_stream.getvalue()
 
-                # Success Notification
                 st.success("✅ Model comparison completed successfully!")
 
-                # Auto-generate dynamic file name
                 base_name = os.path.splitext(uploaded_excel.name)[0]
                 output_filename = f"{base_name}-latest.xlsx"
 
-                # Download Button
                 st.download_button(
                     label="⬇ Download Processed Excel File",
                     data=output_data,
@@ -515,7 +513,6 @@ elif app_mode == "📊 Model Comparison":
                     use_container_width=True
                 )
 
-                # Optional Preview tabs
                 tab1, tab2, tab3 = st.tabs(["OEM Sheet Preview", "Prod Sheet Preview", "Matched Models"])
                 with tab1:
                     st.dataframe(oem_df[['Model Name', 'Status', 'URL']].head(50), use_container_width=True)
